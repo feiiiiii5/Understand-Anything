@@ -33,6 +33,9 @@ def resolve_ua_dir(root: Path) -> Path:
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 CODE_BLOCK_RE = re.compile(r"```(\w*)")
+_FENCED_CODE_RE = re.compile(r"```.*?```", re.DOTALL)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+_POSIX_CLASS_RE = re.compile(r":[A-Za-z]+:")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 INDEX_SECTION_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
 
@@ -118,11 +121,19 @@ def extract_frontmatter(text: str) -> dict:
 
 
 def extract_wikilinks(text: str) -> list[dict]:
-    """Extract all [[target]] and [[target|display]] wikilinks."""
+    """Extract all [[target]] and [[target|display]] wikilinks.
+
+    Code spans and fenced blocks are documentation, not links, and a POSIX
+    character class such as `[[:space:]]` is not a wikilink either.
+    """
+    scanned = _INLINE_CODE_RE.sub("", _FENCED_CODE_RE.sub("", text))
     links = []
-    for m in WIKILINK_RE.finditer(text):
+    for m in WIKILINK_RE.finditer(scanned):
+        target = m.group(1).strip()
+        if _POSIX_CLASS_RE.fullmatch(target):
+            continue
         links.append({
-            "target": m.group(1).strip(),
+            "target": target,
             "display": m.group(2).strip() if m.group(2) else None,
         })
     return links

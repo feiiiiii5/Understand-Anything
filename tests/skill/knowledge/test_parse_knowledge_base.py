@@ -194,5 +194,36 @@ class TestLowercaseWikiStillWorks(unittest.TestCase):
         )
 
 
+class TestWikilinkExtraction(unittest.TestCase):
+    def test_real_wikilinks_are_kept(self) -> None:
+        links = pkb.extract_wikilinks(
+            "See [[T1-survival]] and [[Attention|the attention note]]."
+        )
+        self.assertEqual(
+            links,
+            [
+                {"target": "T1-survival", "display": None},
+                {"target": "Attention", "display": "the attention note"},
+            ],
+        )
+
+    def test_posix_character_class_is_not_a_link(self) -> None:
+        self.assertEqual(
+            pkb.extract_wikilinks("Use `[[:space:]]` to match whitespace."), []
+        )
+
+    def test_wikilinks_inside_code_are_not_links(self) -> None:
+        text = (
+            "Fenced block:\n\n"
+            "```regex\nUse [[:space:]] and [[T1-survival]] here.\n```\n\n"
+            "Inline `[[T2-resources]]` too.\n\n"
+            "A real [[T3-index]] link."
+        )
+        self.assertEqual(
+            pkb.extract_wikilinks(text),
+            [{"target": "T3-index", "display": None}],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
